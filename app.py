@@ -1,9 +1,10 @@
 # ============================================================
 # EMPLOYEE PROMOTION PREDICTION SYSTEM
-# Beautiful Streamlit UI
+# Streamlit Deployment Project
 # ============================================================
 
-# Save as: app.py
+# Save as:
+# app.py
 
 # Run:
 # streamlit run app.py
@@ -14,48 +15,55 @@
 
 import streamlit as st
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
 
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+
+from xgboost import XGBClassifier
+
+from sklearn.metrics import (
+    accuracy_score,
+    confusion_matrix,
+    classification_report
+)
 
 # ============================================================
 # PAGE CONFIG
 # ============================================================
 
 st.set_page_config(
-    page_title="Employee Promotion Predictor",
+    page_title="Employee_promotion_prediction",
     page_icon="📈",
-    layout="centered"
+    layout="wide"
 )
 
 # ============================================================
-# CUSTOM CSS DESIGN
+# CUSTOM CSS
 # ============================================================
 
 st.markdown("""
 <style>
 
 .stApp {
-    background: linear-gradient(to right, #1e3c72, #2a5298);
+    background: linear-gradient(to right, #141E30, #243B55);
 }
 
 .main-title {
     text-align: center;
     color: white;
-    font-size: 42px;
+    font-size: 45px;
     font-weight: bold;
-    margin-bottom: 10px;
+    margin-bottom: 20px;
 }
 
-.sub-title {
-    text-align: center;
-    color: #dbe9ff;
-    font-size: 18px;
-    margin-bottom: 40px;
-}
-
-.input-box {
+.card {
     background-color: white;
-    padding: 30px;
+    padding: 20px;
     border-radius: 20px;
     box-shadow: 0px 4px 15px rgba(0,0,0,0.2);
 }
@@ -65,9 +73,9 @@ st.markdown("""
     color: white;
     padding: 20px;
     border-radius: 15px;
-    text-align: center;
-    font-size: 28px;
+    font-size: 25px;
     font-weight: bold;
+    text-align: center;
 }
 
 .result-fail {
@@ -75,15 +83,16 @@ st.markdown("""
     color: white;
     padding: 20px;
     border-radius: 15px;
-    text-align: center;
-    font-size: 28px;
+    font-size: 25px;
     font-weight: bold;
+    text-align: center;
 }
 
-.footer {
+.metric-box {
+    background-color: white;
+    padding: 20px;
+    border-radius: 15px;
     text-align: center;
-    color: white;
-    margin-top: 50px;
 }
 
 </style>
@@ -93,127 +102,385 @@ st.markdown("""
 # TITLE
 # ============================================================
 
-st.markdown(
-    '<div class="main-title">📈 Employee Promotion Predictor</div>',
-    unsafe_allow_html=True
+st.markdown("""
+<div class="main-title">
+📈 Employee Promotion Prediction
+</div>
+""", unsafe_allow_html=True)
+
+# ============================================================
+# LOAD DATASET
+# ============================================================
+
+df = pd.read_csv("employee_promotion_dataset.csv")
+
+# ============================================================
+# DATA PREPROCESSING
+# ============================================================
+
+# Fill missing values
+from pandas.api.types import is_numeric_dtype
+
+for col in df.columns:
+    if is_numeric_dtype(df[col]):
+        df[col] = df[col].fillna(df[col].mean())
+    else:
+        mode_val = df[col].mode()
+        if len(mode_val) > 0:
+            df[col] = df[col].fillna(mode_val[0])
+        else:
+            df[col] = df[col].fillna('Unknown')
+
+# Encode categorical columns
+encoder = LabelEncoder()
+
+categorical_cols = df.select_dtypes(include='object').columns
+
+for col in categorical_cols:
+    df[col] = encoder.fit_transform(df[col])
+
+# ============================================================
+# FEATURES & TARGET
+# ============================================================
+
+X = df.drop("is_promoted", axis=1)
+
+y = df["is_promoted"]
+
+# ============================================================
+# SPLIT DATA
+# ============================================================
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42
 )
 
-st.markdown(
-    '<div class="sub-title">AI-based Employee Promotion Prediction System</div>',
-    unsafe_allow_html=True
+# ============================================================
+# TRAIN MODELS
+# ============================================================
+
+# Decision Tree
+dt_model = DecisionTreeClassifier(random_state=42)
+dt_model.fit(X_train, y_train)
+
+# Random Forest
+rf_model = RandomForestClassifier(random_state=42)
+rf_model.fit(X_train, y_train)
+
+# XGBoost
+xgb_model = XGBClassifier(
+    use_label_encoder=False,
+    eval_metric='logloss'
+)
+
+xgb_model.fit(X_train, y_train)
+
+# ============================================================
+# PREDICTIONS
+# ============================================================
+
+dt_pred = dt_model.predict(X_test)
+rf_pred = rf_model.predict(X_test)
+xgb_pred = xgb_model.predict(X_test)
+
+# ============================================================
+# ACCURACY
+# ============================================================
+
+dt_acc = accuracy_score(y_test, dt_pred)
+rf_acc = accuracy_score(y_test, rf_pred)
+xgb_acc = accuracy_score(y_test, xgb_pred)
+
+# ============================================================
+# SIDEBAR MENU
+# ============================================================
+
+menu = st.sidebar.radio(
+    "Navigation",
+    [
+        "Dataset",
+        "Model Accuracy",
+        "Prediction",
+        "Visualization"
+    ]
 )
 
 # ============================================================
-# DATASET
+# DATASET SECTION
 # ============================================================
 
-data = {
-    'Experience': [2, 5, 1, 7, 3, 10, 4, 6, 8, 2],
-    'Attendance': [80, 95, 60, 98, 75, 99, 85, 90, 97, 70],
-    'PerformanceScore': [60, 88, 45, 92, 70, 96, 75, 85, 90, 55],
-    'OvertimeHours': [5, 10, 2, 12, 4, 15, 6, 8, 11, 3],
-    'Promoted': [0, 1, 0, 1, 0, 1, 0, 1, 1, 0]
-}
+if menu == "Dataset":
 
-df = pd.DataFrame(data)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
 
-# ============================================================
-# MODEL TRAINING
-# ============================================================
+    st.subheader("📊 Employee Promotion Dataset")
 
-X = df[['Experience',
-        'Attendance',
-        'PerformanceScore',
-        'OvertimeHours']]
+    st.dataframe(df)
 
-y = df['Promoted']
+    st.write("Dataset Shape:", df.shape)
 
-model = DecisionTreeClassifier(random_state=42)
-
-model.fit(X, y)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
-# INPUT FORM
+# MODEL ACCURACY SECTION
 # ============================================================
 
-st.markdown('<div class="input-box">', unsafe_allow_html=True)
+elif menu == "Model Accuracy":
 
-st.subheader("🧑 Employee Details")
+    st.subheader("📌 Accuracy Comparison")
 
-experience = st.slider(
-    "Experience (Years)",
-    min_value=0,
-    max_value=15,
-    value=5
-)
+    col1, col2, col3 = st.columns(3)
 
-attendance = st.slider(
-    "Attendance Percentage",
-    min_value=50,
-    max_value=100,
-    value=80
-)
+    with col1:
+        st.markdown(f"""
+        <div class="metric-box">
+        <h3>Decision Tree</h3>
+        <h1>{dt_acc:.2f}</h1>
+        </div>
+        """, unsafe_allow_html=True)
 
-performance = st.slider(
-    "Performance Score",
-    min_value=40,
-    max_value=100,
-    value=75
-)
+    with col2:
+        st.markdown(f"""
+        <div class="metric-box">
+        <h3>Random Forest</h3>
+        <h1>{rf_acc:.2f}</h1>
+        </div>
+        """, unsafe_allow_html=True)
 
-overtime = st.slider(
-    "Overtime Hours",
-    min_value=0,
-    max_value=20,
-    value=5
-)
+    with col3:
+        st.markdown(f"""
+        <div class="metric-box">
+        <h3>XGBoost</h3>
+        <h1>{xgb_acc:.2f}</h1>
+        </div>
+        """, unsafe_allow_html=True)
 
-predict_button = st.button("🔮 Predict Promotion")
+    # Accuracy Visualization
+    st.subheader("📈 Accuracy Visualization")
 
-st.markdown('</div>', unsafe_allow_html=True)
+    models = [
+        "Decision Tree",
+        "Random Forest",
+        "XGBoost"
+    ]
+
+    accuracies = [
+        dt_acc,
+        rf_acc,
+        xgb_acc
+    ]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    ax.bar(models, accuracies)
+
+    ax.set_ylabel("Accuracy")
+
+    ax.set_title("Model Comparison")
+
+    st.pyplot(fig)
 
 # ============================================================
-# PREDICTION
+# PREDICTION SECTION
 # ============================================================
 
-if predict_button:
+elif menu == "Prediction":
 
-    input_data = pd.DataFrame({
-        'Experience': [experience],
-        'Attendance': [attendance],
-        'PerformanceScore': [performance],
-        'OvertimeHours': [overtime]
+    st.subheader("🔮 Employee Promotion Prediction")
+
+    # User Inputs
+    department = st.selectbox(
+        "Department",
+        sorted(df['department'].unique())
+    )
+
+    region = st.selectbox(
+        "Region",
+        sorted(df['region'].unique())
+    )
+
+    education = st.selectbox(
+        "Education",
+        sorted(df['education'].unique())
+    )
+
+    gender = st.selectbox(
+        "Gender",
+        sorted(df['gender'].unique())
+    )
+
+    recruitment_channel = st.selectbox(
+        "Recruitment Channel",
+        sorted(df['recruitment_channel'].unique())
+    )
+
+    no_of_trainings = st.slider(
+        "No of Trainings",
+        1, 10, 2
+    )
+
+    age = st.slider(
+        "Age",
+        20, 60, 30
+    )
+
+    previous_year_rating = st.slider(
+        "Previous Year Rating",
+        1, 5, 3
+    )
+
+    length_of_service = st.slider(
+        "Length of Service",
+        1, 40, 5
+    )
+
+    KPIs_met = st.selectbox(
+        "KPIs Met >80%",
+        [0, 1]
+    )
+
+    awards_won = st.selectbox(
+        "Awards Won",
+        [0, 1]
+    )
+
+    avg_training_score = st.slider(
+        "Average Training Score",
+        40, 100, 70
+    )
+
+    # ========================================================
+    # PREDICT BUTTON
+    # ========================================================
+
+    if st.button("Predict Promotion"):
+
+        input_data = pd.DataFrame({
+            'department': [department],
+            'region': [region],
+            'education': [education],
+            'gender': [gender],
+            'recruitment_channel': [recruitment_channel],
+            'no_of_trainings': [no_of_trainings],
+            'age': [age],
+            'previous_year_rating': [previous_year_rating],
+            'length_of_service': [length_of_service],
+            'KPIs_met >80%': [KPIs_met],
+            'awards_won?': [awards_won],
+            'avg_training_score': [avg_training_score]
+        })
+
+        # Encode categorical inputs
+        for col in input_data.columns:
+
+            if input_data[col].dtype == 'object':
+
+                input_data[col] = encoder.fit_transform(
+                    input_data[col]
+                )
+
+        # Random Forest Prediction
+        prediction = rf_model.predict(input_data)[0]
+
+        # ====================================================
+        # DISPLAY RESULT
+        # ====================================================
+
+        if prediction == 1:
+
+            st.markdown("""
+            <div class="result-success">
+            ✅ Employee WILL be Promoted
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.success("Reasons for Promotion:")
+
+            reasons = [
+                "High Training Score",
+                "Excellent KPI Performance",
+                "Good Previous Rating",
+                "Strong Experience",
+                "Consistent Performance"
+            ]
+
+            for reason in reasons:
+                st.write("✔", reason)
+
+            st.balloons()
+
+        else:
+
+            st.markdown("""
+            <div class="result-fail">
+            ❌ Employee will NOT be Promoted
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.error("Reasons for Not Promotion:")
+
+            reasons = [
+                "Low Training Score",
+                "Poor KPI Performance",
+                "Low Experience",
+                "No Awards Achieved",
+                "Weak Previous Rating"
+            ]
+
+            for reason in reasons:
+                st.write("❌", reason)
+
+# ============================================================
+# VISUALIZATION SECTION
+# ============================================================
+
+elif menu == "Visualization":
+
+    st.subheader("📊 Promotion Distribution")
+
+    fig1, ax1 = plt.subplots(figsize=(6, 4))
+
+    df['is_promoted'].value_counts().plot(
+        kind='bar',
+        ax=ax1
+    )
+
+    st.pyplot(fig1)
+
+    st.subheader("📈 Feature Importance (Random Forest)")
+
+    importance_df = pd.DataFrame({
+        'Feature': X.columns,
+        'Importance': rf_model.feature_importances_
     })
 
-    prediction = model.predict(input_data)[0]
+    importance_df = importance_df.sort_values(
+        by='Importance',
+        ascending=False
+    )
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    fig2, ax2 = plt.subplots(figsize=(10, 6))
 
-    if prediction == 1:
+    ax2.barh(
+        importance_df['Feature'],
+        importance_df['Importance']
+    )
 
-        st.markdown("""
-        <div class="result-success">
-            ✅ Employee is Likely to be PROMOTED
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.balloons()
-
-    else:
-
-        st.markdown("""
-        <div class="result-fail">
-            ❌ Employee is NOT Likely to be Promoted
-        </div>
-        """, unsafe_allow_html=True)
+    st.pyplot(fig2)
 
 # ============================================================
 # FOOTER
 # ============================================================
 
+st.markdown("---")
+
 st.markdown("""
-<div class="footer">
-    <h4>🚀 Streamlit Machine Learning Project</h4>
-    <p>Employee Promotion Prediction using Decision Tree</p>
-</div>
+<center>
+<h4 style='color:white;'>
+🚀 Employee Promotion Prediction using ML
+</h4>
+</center>
 """, unsafe_allow_html=True)
